@@ -69,9 +69,6 @@ jobs:
             exit 1
           fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
           space_url="https://huggingface:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}"
 
           # HF git rejects blobs >10 MiB. Legacy PDFs are archival only (RAG uses extracted
@@ -82,6 +79,8 @@ jobs:
 
           cd "${deploy_dir}"
           git init -b main
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "Deploy ${GITHUB_SHA}"
 
