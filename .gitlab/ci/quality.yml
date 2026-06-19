@@ -1,0 +1,60 @@
+# =============================================================================
+# quality.yml — 代码质量检查（Ruff / Pyright）
+# =============================================================================
+#
+# 【跑在哪】GitLab 共享 Runner（云端），不是 gpu-server。
+# 【不需要】tags: gpu-server，也不访问 /mnt/nfs_data。
+#
+# 【两层 Docker 之「第 1 层」— CI job 环境】
+# 下面 image: 指定的是「跑 CI 脚本的临时容器」，由 GitLab Runner 自动拉起。
+# 这个镜像 ≠ 项目根目录的 Dockerfile；Dockerfile 不参与 quality job。
+#
+#   GitLab 派 job → Runner 起 uv 容器 → 在容器里执行 uv run ruff / pyright
+#
+# 这类 job 适合 docker executor + 指定 image，不需要 GPU 宿主机。
+# =============================================================================
+
+# Hidden job（以 . 开头）：只作模板，不会单独执行
+.quality_rules:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+.quality_base:
+  stage: quality
+  image: ghcr.io/astral-sh/uv:python3.12-bookworm-slim # 在 uv 容器里执行检查
+  extends: .quality_rules # 复用 .quality_rules 中的 rules
+  cache:
+    key:
+      files:
+        - pyproject.toml
+        - uv.lock # 有 lock 时 cache key 更稳定
+    paths:
+      - .venv/
+      - .cache/uv/
+    policy: pull-push
+  before_script:
+    # pyright 通过 nodeenv 安装 Node；slim 镜像缺少 libatomic.so.1
+    - apt-get update && apt-get install -y --no-install-recommends libatomic1
+    - |
+      if [ ! -f pyproject.toml ]; then
+        echo "No pyproject.toml found; skipping Python quality checks."
+        exit 0
+      fi
+    - uv sync --dev
+
+# 以下三个 job 并行执行，互不等待（同一 stage 内默认并行）
+quality:ruff-check:
+  extends: .quality_base
+  script:
+    - uv run ruff check .
+
+quality:ruff-format:
+  extends: .quality_base
+  script:
+    - uv run ruff format --check .
+
+quality:pyright:
+  extends: .quality_base
+  script:
+    - uv run pyright

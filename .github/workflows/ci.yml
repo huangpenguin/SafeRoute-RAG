@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Python quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Install dev dependencies
+        run: uv sync --dev
+
+      - name: Ruff check
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+  deploy-hf-space:
+    name: Deploy to Hugging Face Space
+    runs-on: ubuntu-latest
+    needs: quality
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE: ${{ vars.HF_SPACE }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HF_TOKEN}" ]; then
+            echo "::error::Missing GitHub secret HF_TOKEN (Hugging Face write token)."
+            exit 1
+          fi
+          if [ -z "${HF_SPACE}" ]; then
+            echo "::error::Missing GitHub variable HF_SPACE (format: username/space-name)."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          space_url="https://huggingface:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}"
+          if git remote get-url space >/dev/null 2>&1; then
+            git remote set-url space "${space_url}"
+          else
+            git remote add space "${space_url}"
+          fi
+
+          git push --force space "HEAD:main"
+          echo "Deployed to https://huggingface.co/spaces/${HF_SPACE}"

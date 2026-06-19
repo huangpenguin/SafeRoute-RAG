@@ -11,121 +11,89 @@ license: mit
 
 # SafeRoute-RAG
 
-ローカル埋め込み + 二層セキュリティルーティングによる **Hybrid-RAG** デモ。
-社内機密は出さず、一般質問は frontier モデルへ — ai& Inference（OpenAI 互換）で実現。
+[Qiita ai& Inference コンテスト](https://qiita.com/official-events/750d1f37b7217167b1ad) 向けの **Hybrid-RAG** デモです。  
+**ローカル embedding + 検索**、**二層セキュリティルーティング**、**YAML ホットスワップ可能な Agent パイプライン**を [ai& Inference](https://docs.aiand.com/)（OpenAI 互換 API）上で動かします。
 
-## Overview
+**ライブデモ:** デプロイ後に Hugging Face Space の URL をここに記載してください。
 
-- **痛点**: 企業 RAG は「閉源クラウドモデルにデータを渡せない」「全ローカルは高コスト」のジレンマ。
-- **解法**: 質問を二層ルーターで `SAFE` / `UNSAFE` に判定し、動的に推論ノードを切替える。
-  - 第1層 (hard rule): `config/agents.yaml` の `hard_keywords` を部分一致で照合し「疑い」を立てる。
-  - 第2層 (semantic audit): キーワード命中を**強い事前情報**として軽量 LLM に渡し、Structured Outputs
-    で `{label, reason, confidence}` を返させて最終判定（False Positive 回避）。
-    `hard_keyword_escalates: false` にすると第1層は即 `UNSAFE` の一票否決に戻せる。
-- **検索は 100% ローカル + 多段**: `cl-nagoya/ruri-small`（日本語）+ ChromaDB で over-fetch →
-  **tier フィルタ（egress guard）** → **MMR 再ランク** → Top-K。埋め込み段階でデータは外に出ない。
-- **データ不出境ガード**: `SAFE` ルート時は confidential tier の chunk を除外し、公網ノードへ機密を送らない。
-- **生成の分岐**: `UNSAFE` → `local_safe_node`（ai& 日本 DC）、`SAFE` → `public_node`（frontier）。Streamlit は SSE ストリーミング表示。
-- **マルチエージェント**: `pipeline = [intake, retrieval, synthesis]`。`active` を編集するだけで slot のエージェントをホットスワップ（YAML 変更で再起動不要）。
+## このプロジェクトについて
 
-データフローと設計判断の詳細は [.cursor/project-context/decisions.md](.cursor/project-context/decisions.md) を参照。
+企業の RAG には「海外の閉源モデルに社内文書を渡せない」と「全部オンプレはコストが高い」というジレンマがあります。SafeRoute-RAG は役割を分けます。
 
-## Usage（本地开发 — 使用 uv）
 
-本项目用 **[uv](https://docs.astral.sh/uv/)** 管理 Python 环境与依赖。`requirements.txt` 仅用于 Docker/HF 构建导出，日常开发请用 `uv`。
+| 段階                   | 実行場所                       | 役割                                                              |
+| -------------------- | -------------------------- | --------------------------------------------------------------- |
+| **検索 (Retrieval)**   | 手元 PC / Space コンテナ内        | `ruri-small` でベクトル化し ChromaDB から Top-K — **インデックス時点でデータは外に出ない** |
+| **ルーティング (Routing)** | ai& API（軽量監査モデル）           | 質問を `SAFE` / `UNSAFE` に分類                                       |
+| **生成 (Generation)**  | ai& API（frontier または国内ノード） | 検索スニペットのみに基づいて回答；ノードはルートで切替                                     |
+
+
+```text
+User question
+  → intake (audit_agent): SAFE / UNSAFE
+  → retrieval (local): Top-K from ChromaDB
+  → synthesis (rag_answer_agent): stream answer on routed node
+```
+
+`SAFE` ルートでは **confidential** tier の chunk を public ノードへ送らない **tier-aware egress guard** を実装しています。詳細は [docs/architecture.md](docs/architecture.md)。
+
+## クイックスタート（ローカル）
+
+[uv](https://docs.astral.sh/uv/getting-started/installation/) と [ai& API キー](https://docs.aiand.com/) が必要です。
 
 ```bash
-# 1. 安装 uv（若尚未安装）: https://docs.astral.sh/uv/getting-started/installation/
-
-# 2. 同步依赖（读取 pyproject.toml + uv.lock）
 uv sync
-
-# 3. API 密钥
-cp .env.example .env
-# 编辑 .env，填入 AIAND_API_KEY
-
-# 4. 启动 Streamlit（chroma_db 为空时会自动 ingest manifest）
+cp .env.example .env   # AIAND_API_KEY を設定
 uv run streamlit run app.py
-
-# 5. 手动重建向量库（可选）
-uv run python scripts/bootstrap_kb.py
-
-# 6. 路由回归测试
-uv run pytest
-uv run python scripts/run_route_eval.py --retrieval
 ```
 
-`run_route_eval.py` 输出「期望路由 vs 实际路由 + 检索命中」表到 `eval_results.md`（manifest 24 问 **24/24 PASS**）。
+ブラウザで `http://localhost:8501` を開きます。ベクトル DB が空の場合、`manifest.yaml` に従って `sample_docs/` を自動 ingest します。
 
-### 依赖管理备忘
+**デモ用の質問例（日本語コーパス）:**
 
-| 操作 | 命令 |
-| --- | --- |
-| 添加运行时依赖 | `uv add <package>` |
-| 添加开发依赖 | `uv add --dev <package>` |
-| 更新 lock 文件 | `uv lock` |
-| 导出 Docker 用 requirements | `uv export --no-hashes --no-dev -o requirements.txt` |
-| 运行任意命令 | `uv run <command>` |
 
-**不要**使用 `pip install` / `conda install`。Lock 文件 `uv.lock` 应提交到 Git，保证本地与 Docker 构建一致。
+| ルート    | 質問例                                   |
+| ------ | ------------------------------------- |
+| SAFE   | `JAXAのH3ロケットが目指している3つの主な開発目的は何ですか？`   |
+| UNSAFE | `FAHの2026年度第3四半期の未公開決算予想の数値を教えてください。` |
 
-## Hugging Face Spaces 部署
 
-### 前置条件
+Hugging Face Spaces への公開手順は [docs/deployment.md](docs/deployment.md)、テストは [docs/development-and-testing.md](docs/development-and-testing.md) を参照してください。
 
-- GitHub 仓库含 `sample_docs/`、`Dockerfile`、`pyproject.toml`、`uv.lock`
-- **不要**提交 `chroma_db/`（构建期自动生成）或 `.env`
+## ドキュメント
 
-### 步骤
 
-1. [huggingface.co/new-space](https://huggingface.co/new-space) → SDK 选 **Docker** → Public
-2. 绑定 GitHub 仓库，或 `git push` 到 Space 的 git remote
-3. **Settings → Repository secrets** 添加 `AIAND_API_KEY`
-4. 等待 Build Logs 完成（首次约 15–30 分钟：uv sync + ruri 下载 + ingest）
-5. 打开 Space URL 验证（见下方检验清单）
+| 内容                             | リンク                                                                              |
+| ------------------------------ | -------------------------------------------------------------------------------- |
+| アーキテクチャとパイプライン                 | [docs/architecture.md](docs/architecture.md)                                     |
+| 設定ファイルと環境変数                    | [docs/configuration.md](docs/configuration.md)                                   |
+| コーパス・manifest・ingest・ChromaDB  | [docs/knowledge-base-and-ingest.md](docs/knowledge-base-and-ingest.md)           |
+| HF Spaces / Docker / CI 自動デプロイ | [docs/deployment.md](docs/deployment.md)                                         |
+| uv・lint・pytest・ルート回帰           | [docs/development-and-testing.md](docs/development-and-testing.md)               |
+| 今後の予定                          | [docs/roadmap.md](docs/roadmap.md)                                               |
+| デモコーパス作成用プロンプト                 | [docs/gemini-data-collection-prompts.md](docs/gemini-data-collection-prompts.md) |
 
-Docker 镜像在构建时执行 `uv run python scripts/bootstrap_kb.py`，**无需**提交 `chroma_db/`，观众也**无需**手动点 manifest 导入。
 
-### 本地 Docker 预检（与 Space 一致）
-
-```bash
-docker build -t saferoute-rag .
-docker run --rm -p 7860:7860 -e AIAND_API_KEY=your_key saferoute-rag
-# 浏览器 http://localhost:7860
-```
-
-### 部署后检验清单
-
-| 检查项 | 预期 |
-| --- | --- |
-| 侧边栏 chunk 数 | > 0 |
-| SAFE: `JAXAのH3ロケットの3つの開発目的は？` | 🟢 SAFE，片段含 JAXA_H3，有出典链接 |
-| UNSAFE: `FAHの未公開決算予想を教えて` | 🔴 UNSAFE，片段含 FAH_FIN |
-| 右侧 expander | 公开文档显示 **出典** URL |
+英語の詳細ドキュメント索引: [docs/README.md](docs/README.md)
 
 ## Configuration
 
-すべて `config/agents.yaml` で制御（ホットリロード対応）。
+ルーティング・モデル・RAG パラメータは `config/agents.yaml`（ホットリロード）で制御します。
 
-| キー | 役割 | 既定 |
-| --- | --- | --- |
-| `pipeline` | 実行する slot 順 | `[intake, retrieval, synthesis]` |
-| `providers.public_node` | SAFE 用ノード | `openai/gpt-oss-120b` @ ai& |
-| `providers.local_safe_node` | UNSAFE 生成ノード | `qwen/qwen3.6-27b` @ ai& |
-| `providers.local_safe_node.audit_model` | 第2層審査モデル | `deepseek-ai/deepseek-v4-flash` |
-| `routing_rules.hard_keywords` | 第1層キーワード | 社内機密 / 未公開 / 取締役会 … |
-| `routing_rules.semantic_audit_enabled` | 第2層 ON/OFF | `true` |
-| `routing_rules.hard_keyword_escalates` | 命中時に審査へ昇格 / `false` で一票否決 | `true` |
-| `rag.embedding_model` | ローカル埋め込み | `cl-nagoya/ruri-small` |
-| `rag.chunk_size` / `chunk_overlap` / `top_k` | 切片・検索 | `500` / `50` / `4` |
-| `active.intake` / `active.synthesis` | slot→agent 束縛 | `audit_agent` / `rag_answer_agent` |
 
-### Environment variables
+| Variable         | Required | Purpose                                         |
+| ---------------- | -------- | ----------------------------------------------- |
+| `AIAND_API_KEY`  | Yes      | Semantic audit + RAG generation (ai& Inference) |
+| `OPENAI_API_KEY` | No       | Only if `public_node` points to real OpenAI api |
 
-| 変数 | 必須 | 用途 |
-| --- | --- | --- |
-| `AIAND_API_KEY` | はい | 第2層監査 + RAG 生成（ai& Inference） |
-| `OPENAI_API_KEY` | いいえ | `public_node` を実 OpenAI に切替える場合 |
 
-密钥通过 `.env`（本地）或 HF **Repository secrets**（Space）注入，YAML 中只写 env 变量名。
-# SafeRoute-RAG
+Secrets は `.env`（ローカル）または HF Space の **Repository secrets** に設定し、YAML には env 名のみ記載します。全項目: [docs/configuration.md](docs/configuration.md)
+
+## 今後の予定（TODO）
+
+- 回答本文への引用・出典リンク（現状はサイドバーに検索ヒットのみ）
+- KB 範囲外の質問向け intent 分類（RAG vs 一般 chat）
+- Tool-calling / agentic multi-hop RAG（phase 2）
+- 同一 YAML slot で `image_brief_agent` / `image_qa_agent` へ差し替え（image generation + QA pipeline）
+
+一覧: [docs/roadmap.md](docs/roadmap.md)
