@@ -73,11 +73,19 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           space_url="https://huggingface:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}"
-          if git remote get-url space >/dev/null 2>&1; then
-            git remote set-url space "${space_url}"
-          else
-            git remote add space "${space_url}"
-          fi
 
-          git push --force space "HEAD:main"
+          # HF git rejects blobs >10 MiB. Legacy PDFs are archival only (RAG uses extracted
+          # sample_docs/public/*.md). Exclude them from the Space repo to avoid LFS/history issues.
+          deploy_dir="$(mktemp -d)"
+          git archive HEAD | tar -x -C "${deploy_dir}"
+          rm -rf "${deploy_dir}/sample_docs/public/legacy"
+
+          cd "${deploy_dir}"
+          git init -b main
+          git add -A
+          git commit -m "Deploy ${GITHUB_SHA}"
+
+          git remote add space "${space_url}"
+
+          git push --force space main
           echo "Deployed to https://huggingface.co/spaces/${HF_SPACE}"
