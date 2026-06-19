@@ -1,0 +1,15 @@
+---
+description: README structure when creating or editing README files
+globs: "**/README.md"
+alwaysApply: false
+---
+
+# README Structure
+
+When creating or editing a README, keep it practical:
+
+1. **Overview**: what the project does, core inputs/outputs, and the main workflow.
+2. **Usage**: minimal runnable commands or API examples.
+3. **Configuration**: list command-line flags, config keys, and environment variables with defaults and purpose.
+
+Avoid filler sections like Contributing, License, Changelog, or architecture essays unless the user asks for them.

@@ -1,0 +1,16 @@
+---
+description: Reinforcement learning project and training file conventions
+globs: "**/*{rl,ppo,dqn,sac,a2c,reinforce,policy,value,rollout,replay,train}*.py"
+alwaysApply: false
+---
+
+# Reinforcement Learning
+
+- Apply this rule only when the project is explicitly RL-focused, the user asks for RL work, or the current files clearly belong to RL training.
+- Default to PyTorch unless the repository clearly uses another framework.
+- Document non-trivial Tensor shapes at the point of use, for example `# [batch_size, seq_len, hidden_dim]`.
+- Consider `wandb` or `MLflow` when experiments need metrics, configs, artifacts, sweeps, or reproducibility notes.
+- Keep RL training code modular: separate env, rollout/replay, model, loss, optimizer, eval, and logging.
+- For long-running experiments, set seeds explicitly, record hyperparameters and device info, and checkpoint model/optimizer state.
+- Log reward, return, episode length, loss terms, learning rate, entropy/KL, and evaluation scores with stable metric names.
+- Make device placement explicit; avoid hiding `.to(...)` transfers inside opaque utility functions.

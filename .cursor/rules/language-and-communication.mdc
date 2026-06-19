@@ -1,0 +1,12 @@
+---
+description: Conversation and code language conventions
+alwaysApply: true
+---
+
+# Language
+
+- **User-facing communication**: default to English unless the user requests another language.
+- **Identifiers**: keep variable names, function names, class names, filenames, commit messages, and PR descriptions in English.
+- **Docs/comments default**: follow the repository's existing language style.
+- **Chinese-native Python docs**: when `.cursor/project-context/` explicitly enables it, apply `python-bilingual-docs.mdc` for Chinese docstrings/comments with English technical terms in parentheses.
+- **Style**: keep explanations direct, technical, and concise.

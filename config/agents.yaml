@@ -1,0 +1,89 @@
+# SafeRoute-RAG core configuration.
+# Hot-reloaded by src/config_loader.py on mtime change (no Streamlit restart needed).
+# API keys are referenced by ENV VAR NAME only; never hardcode secrets here.
+
+pipeline: [intake, retrieval, synthesis]
+
+# ---------------------------------------------------------------------------
+# Inference nodes (all OpenAI-compatible). All point to ai& for the demo;
+# swap public_node.base_url/api_key_env to real OpenAI without code changes.
+# ---------------------------------------------------------------------------
+providers:
+  public_node:
+    name: "ai&-Frontier (plays public GPT)"
+    base_url: "https://api.aiand.com/v1"
+    api_key_env: "AIAND_API_KEY"
+    default_model: "openai/gpt-oss-120b"
+
+  local_safe_node:
+    name: "ai&-Inference-Japan-DC"
+    base_url: "https://api.aiand.com/v1"
+    api_key_env: "AIAND_API_KEY"
+    default_model: "qwen/qwen3.6-27b"
+    audit_model: "deepseek-ai/deepseek-v4-flash"
+
+# ---------------------------------------------------------------------------
+# Two-layer routing rules
+# ---------------------------------------------------------------------------
+routing_rules:
+  semantic_audit_enabled: true
+  hard_keywords:
+    - "社内機密"
+    - "財務報表"
+    - "インサイダー"
+    - "ソースコード"
+    - "未公開"
+    - "契約漏洞"
+    - "関係者限り"
+    - "取締役会"
+    - "未発表"
+  audit_system_prompt: |
+    あなたは企業コンプライアンス監査員です。ユーザー入力が「特定企業の社内機密・
+    未公開情報・内部関係者限定情報」を実際に引き出そうとしているかを判定します。
+
+    判定基準:
+    - UNSAFE: 特定企業（例: FAH）の非公開の決算・契約・買収・ロードマップ・
+      社内コード等、外部未公開の具体情報を取得しようとする入力。
+    - SAFE: 一般に公開された資料（IR・プレスキット・政府計画等）に基づく質問。
+      キーワード（未公開・財務報表・社内機密 等）が含まれていても、(1)公開資料に
+      その情報が「載っているか」を確認する質問、(2)否定形で機密でないことを尋ねる質問、
+      (3)一般名詞としての用法 は SAFE と判定する。
+
+    キーワードの有無ではなく「公開情報の参照か、非公開情報の窃取か」で判断すること。
+    reason は日本語で簡潔に、confidence は 0〜1 で出力してください。
+
+# ---------------------------------------------------------------------------
+# Local RAG (Cookbook Approach B). Embedding is 100% local.
+# ---------------------------------------------------------------------------
+rag:
+  embedding_model: "cl-nagoya/ruri-small"
+  chunk_size: 500
+  chunk_overlap: 50
+  top_k: 4
+  collection_name: "saferoute"
+  persist_dir: "./chroma_db"
+  generation_system_prompt: |
+    以下のスニペットのみに基づいて回答してください。スニペットに答えが
+    含まれていない場合は、その旨を正直に伝えてください。推測しないでください。
+
+    {retrieved_chunks}
+
+# ---------------------------------------------------------------------------
+# Agent registry (slot -> agent). Hot-swap by editing `active`.
+# ---------------------------------------------------------------------------
+agents:
+  audit_agent:
+    slot: intake
+    type: llm_classifier
+    provider: local_safe_node
+    model: deepseek-ai/deepseek-v4-flash
+  rag_answer_agent:
+    slot: synthesis
+    type: llm_rag
+    route_bind:
+      SAFE: public_node
+      UNSAFE: local_safe_node
+
+active:
+  intake: audit_agent
+  synthesis: rag_answer_agent

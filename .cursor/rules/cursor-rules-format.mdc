@@ -1,0 +1,14 @@
+---
+description: Cursor .mdc rule authoring conventions
+globs: ".cursor/rules/**/*.mdc"
+alwaysApply: false
+---
+
+# Cursor Rule Format
+
+- Use `.mdc` files under `.cursor/rules/`.
+- Start each rule with YAML frontmatter delimited by `---`.
+- Include a short `description`.
+- Use `alwaysApply: true` only for universal rules.
+- Use `globs` for file-specific rules, e.g. `**/*.py` or `**/README.md`.
+- Keep each rule focused, actionable, and under roughly 50 lines when possible.

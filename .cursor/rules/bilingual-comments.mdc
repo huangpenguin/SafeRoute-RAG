@@ -1,0 +1,38 @@
+---
+description: Chinese-native Python docstrings and comments (enable via project-context)
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Python Bilingual Docs Mode
+
+Apply this rule only when `.cursor/project-context/` explicitly enables Chinese-native Python documentation (for example in `overview.md` or `docs-language.md`).
+
+- Write Python docstrings and explanatory comments in Simplified Chinese.
+- Keep identifiers in English: functions, classes, variables, modules, constants.
+- Preserve key technical terms in English inside parentheses, e.g. `广义优势估计 (Generalized Advantage Estimation, GAE)`.
+- For parameters, describe meaning in Chinese and include tensor shape when relevant.
+- For tensor code, keep shape comments compact, e.g. `# [batch_size, seq_len]`.
+- Do not translate library names, APIs, config keys, metric names, or CLI commands.
+- Prefer concise technical Chinese over tutorial-style prose.
+
+```python
+def calculate_gae(
+    rewards: torch.Tensor,
+    values: torch.Tensor,
+    gamma: float,
+    lam: float,
+) -> torch.Tensor:
+    """计算广义优势估计 (Generalized Advantage Estimation, GAE)。
+
+    参数:
+        rewards: 步级奖励张量，shape: [batch_size, seq_len]
+        values: 状态价值函数预测值，shape: [batch_size, seq_len]
+        gamma: 折扣因子
+        lam: GAE 衰减参数
+    """
+    # 计算 TD 误差 (TD error)
+    # [batch_size, seq_len - 1]
+    deltas = rewards[:, :-1] + gamma * values[:, 1:] - values[:, :-1]
+    return deltas
+```

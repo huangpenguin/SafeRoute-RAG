@@ -1,0 +1,13 @@
+---
+description: Project context and lessons-learned workflow
+globs: "*"
+---
+
+- Before major architecture, debugging, or planning work, read `.cursor/project-context/` and `.cursor/lessons-learned/` when relevant. Also read root `MEMORY.md` only if it exists in a target project.
+- Store stable project state, architecture decisions, active plans, and workflow conventions in `.cursor/project-context/`.
+- Store reusable bug lessons, CI failures, repeated-failure fixes, and debugging postmortems in `.cursor/lessons-learned/`.
+- In this template repository, prefer `.cursor/project-context/decisions.md` for long-lived architecture decisions. Root `MEMORY.md` is only a template file for target projects, not the preferred place for this repository's own decisions.
+- After major decisions, deep bug fixes, or repeated-failure resolutions, proactively suggest a concise update to the appropriate file.
+- Keep notes short, clear, and easy for agents to scan. Prefer bullets over long prose.
+- Never store secrets, credentials, private tokens, or long transcripts in these files.
+- Write project memory in English unless the project explicitly chooses another language.

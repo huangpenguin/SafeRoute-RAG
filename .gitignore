@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.python-version
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Tool caches
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.pyright/
+.coverage
+htmlcov/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
+.devcontainer/devcontainer.local.json
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Experiment tracking
+wandb/
+mlruns/
+runs/
+logs/
+lightning_logs/
+tensorboard/
+*.log
+
+# Vector store
+chroma_db/
+
+# Eval output
+eval_results.md
+
+# Data and model artifacts
+data/
+datasets/
+outputs/
+artifacts/
+checkpoints/
+models/
+*.ckpt
+*.pt
+*.pth
+*.safetensors
+*.onnx

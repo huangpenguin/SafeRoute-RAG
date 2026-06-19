@@ -1,0 +1,14 @@
+---
+description: Python and uv package management constraints
+alwaysApply: true
+---
+
+# Python + uv
+
+- **Package manager**: use `uv` only. Never use `pip install`, `conda install`, Poetry, or pipenv.
+- **Dependencies**: add packages with `uv add <package>` or `uv add --dev <package>`. Use `uv pip ...` only when a pip-compatible command is explicitly required.
+- **Commands**: run project commands through `uv run ...` so they execute inside the project environment.
+- **Typing**: new or changed Python code must include precise type hints for functions, methods, class attributes, and public data structures.
+- **Validation**: prefer Pydantic models for external inputs, configs, API payloads, experiment specs, and structured runtime data.
+- **Static checks**: prefer Ruff for linting/formatting and Pyright-compatible type discipline when the project has no stricter local standard.
+- **No ambient env assumptions**: do not rely on globally installed Python packages or implicit shell environments.

@@ -1,0 +1,13 @@
+---
+description: Agent behavior boundaries for safe code changes
+alwaysApply: true
+---
+
+# Agent Behavior
+
+- **Reuse first**: prefer existing functions, modules, configs, and project conventions before adding new abstractions.
+- **Tight scope**: edit only the files and lines required for the task; avoid drive-by refactors.
+- **No silent fallback**: do not add hidden fallback paths or compatibility layers unless the user explicitly asks for them.
+- **Testing**: when changing code covered by existing tests, run the relevant suite through `uv run ...` and fix real failures.
+- **Failure visibility**: errors should be explicit through exceptions, logs, or test failures; never hide broken behavior.
+- **Docs restraint**: edit README or broad docs only when the task calls for it.
