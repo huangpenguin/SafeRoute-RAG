@@ -3,6 +3,7 @@
   "exclude": [
     ".venv",
     "__pycache__",
-    ".git"
+    ".git",
+    "scripts"
   ]
 }

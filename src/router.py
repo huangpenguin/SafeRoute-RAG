@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 
 from src.llm_client import LLMClient
-from src.models import AppConfig, AuditVerdict, RouteDecision
+from src.models import AppConfig, AuditVerdict, RouteDecision, RouteLabel, RouteLayer
 
 
 class HybridRouter:
@@ -18,7 +18,7 @@ class HybridRouter:
     def update_config(self, config: AppConfig) -> None:
         self._config = config
 
-    def _target(self, label: str) -> tuple[str, str]:
+    def _target(self, label: RouteLabel) -> tuple[str, str]:
         """Resolve (provider, model) for the synthesis agent given a route label."""
         agent_name = self._config.active["synthesis"]
         agent = self._config.agents[agent_name]
@@ -80,8 +80,8 @@ class HybridRouter:
 
     def _finalize(
         self,
-        label: str,
-        layer: str,
+        label: RouteLabel,
+        layer: RouteLayer,
         start: float,
         matched_keywords: list[str] | None = None,
         audit_raw: str | None = None,
@@ -90,8 +90,8 @@ class HybridRouter:
     ) -> RouteDecision:
         provider, model = self._target(label)
         return RouteDecision(
-            label=label,  # type: ignore[arg-type]
-            layer=layer,  # type: ignore[arg-type]
+            label=label,
+            layer=layer,
             matched_keywords=matched_keywords or [],
             audit_raw=audit_raw,
             reason=reason,

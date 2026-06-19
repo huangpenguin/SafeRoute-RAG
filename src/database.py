@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import chromadb
 import numpy as np
 import yaml
 from chromadb.api import ClientAPI
+from chromadb.api.types import Embedding, Metadata
 from sentence_transformers import SentenceTransformer
 
 from src.models import RAGConfig, RetrievedChunk
@@ -62,12 +63,20 @@ class LocalKnowledgeBase:
         return self._collection.count()
 
     def _embed_passages(self, texts: list[str]) -> list[list[float]]:
-        vectors = self._embedder.encode([_PASSAGE_PREFIX + t for t in texts], normalize_embeddings=True)
-        return vectors.tolist()
+        vectors = self._embedder.encode(  # pyright: ignore[reportUnknownMemberType]
+            [_PASSAGE_PREFIX + t for t in texts],
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+        )
+        return cast(list[list[float]], vectors.tolist())
 
     def _embed_query(self, text: str) -> list[float]:
-        vector = self._embedder.encode([_QUERY_PREFIX + text], normalize_embeddings=True)
-        return vector[0].tolist()
+        vector = self._embedder.encode(  # pyright: ignore[reportUnknownMemberType]
+            [_QUERY_PREFIX + text],
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+        )
+        return cast(list[float], vector[0].tolist())
 
     def load_manifest(self) -> dict[str, Any]:
         with MANIFEST_PATH.open("r", encoding="utf-8") as fh:
@@ -122,7 +131,12 @@ class LocalKnowledgeBase:
             }
             for _ in chunks
         ]
-        self._collection.upsert(ids=ids, documents=chunks, embeddings=embeddings, metadatas=metadatas)
+        self._collection.upsert(
+            ids=ids,
+            documents=chunks,
+            embeddings=cast(list[Embedding], embeddings),
+            metadatas=cast(list[Metadata], metadatas),
+        )
         return len(chunks)
 
     def retrieve(
@@ -153,10 +167,16 @@ class LocalKnowledgeBase:
             n_results=fetch_k,
             include=["documents", "metadatas", "distances", "embeddings"],
         )
-        docs = result.get("documents", [[]])[0]
-        metas = result.get("metadatas", [[]])[0]
-        dists = result.get("distances", [[]])[0]
-        embs = result.get("embeddings", [[]])[0]
+        doc_rows = result.get("documents")
+        meta_rows = result.get("metadatas")
+        dist_rows = result.get("distances")
+        emb_rows = result.get("embeddings")
+        if not doc_rows or not meta_rows or not dist_rows or not emb_rows:
+            return []
+        docs = doc_rows[0]
+        metas = meta_rows[0]
+        dists = dist_rows[0]
+        embs = emb_rows[0]
 
         candidates: list[tuple[RetrievedChunk, np.ndarray]] = []
         for text, meta, dist, emb in zip(docs, metas, dists, embs, strict=False):

@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from typing import Any, cast
 
 from openai import OpenAI
+from openai.types.chat import ChatCompletionMessageParam
+from openai.types.shared_params import ResponseFormatJSONSchema
 
 from src.config_loader import resolve_api_key
 from src.models import AppConfig, AuditVerdict, ProviderConfig
@@ -69,7 +72,10 @@ class LLMClient:
             ],
             temperature=0.0,
             max_tokens=200,
-            response_format={"type": "json_schema", "json_schema": _AUDIT_JSON_SCHEMA},
+            response_format=ResponseFormatJSONSchema(
+                type="json_schema",
+                json_schema=cast(Any, _AUDIT_JSON_SCHEMA),
+            ),
         )
         raw = (resp.choices[0].message.content or "").strip()
         return AuditVerdict.model_validate_json(raw)
@@ -85,7 +91,7 @@ class LLMClient:
         """Generate the final RAG answer on the routed node."""
         provider = self._provider(provider_name)
         gen_model = model or provider.default_model
-        messages = [
+        messages: list[ChatCompletionMessageParam] = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_input},
         ]
@@ -98,7 +104,9 @@ class LLMClient:
         )
         return resp.choices[0].message.content or ""
 
-    def _stream(self, provider_name: str, model: str, messages: list[dict[str, str]]) -> Iterator[str]:
+    def _stream(
+        self, provider_name: str, model: str, messages: list[ChatCompletionMessageParam]
+    ) -> Iterator[str]:
         stream = self._client(provider_name).chat.completions.create(
             model=model,
             messages=messages,
@@ -106,6 +114,8 @@ class LLMClient:
             stream=True,
         )
         for chunk in stream:
+            if not chunk.choices:
+                continue
             delta = chunk.choices[0].delta.content
             if delta:
                 yield delta

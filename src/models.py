@@ -104,5 +104,5 @@ class AgentResult(BaseModel):
     slot: str
     agent_name: str
     route: RouteDecision | None = None
-    chunks: list[RetrievedChunk] = Field(default_factory=list)
+    chunks: list[RetrievedChunk] = Field(default_factory=lambda: list[RetrievedChunk]())
     answer: str | None = None
