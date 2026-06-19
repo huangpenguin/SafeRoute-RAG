@@ -128,3 +128,4 @@ docker run --rm -p 7860:7860 -e AIAND_API_KEY=your_key saferoute-rag
 | `OPENAI_API_KEY` | いいえ | `public_node` を実 OpenAI に切替える場合 |
 
 密钥通过 `.env`（本地）或 HF **Repository secrets**（Space）注入，YAML 中只写 env 变量名。
+# SafeRoute-RAG
