@@ -96,9 +96,7 @@ def _evaluate(retrieval: bool) -> list[RowResult]:
             ok = bool(expected_docs & set(hit_docs))
             retrieval_cell = ("OK " if ok else "MISS ") + "/".join(hit_docs[:3])
 
-        rows.append(
-            RowResult(cid, bucket, expected, decision.label, decision.layer, detail, status, retrieval_cell)
-        )
+        rows.append(RowResult(cid, bucket, expected, decision.label, decision.layer, detail, status, retrieval_cell))
     return rows
 
 

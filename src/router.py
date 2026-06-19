@@ -42,7 +42,10 @@ class HybridRouter:
         veto = bool(matched) and (not rules.hard_keyword_escalates or not rules.semantic_audit_enabled)
         if veto:
             return self._finalize(
-                "UNSAFE", "hard_rule", start, matched_keywords=matched,
+                "UNSAFE",
+                "hard_rule",
+                start,
+                matched_keywords=matched,
                 reason="hard keyword veto",
             )
 

@@ -107,16 +107,12 @@ class LocalKnowledgeBase:
         """Ingest raw text (e.g. uploaded file) into the collection."""
         return self._add_chunks(text, doc_id, tier, synthetic, None)
 
-    def _ingest_file(
-        self, path: Path, doc_id: str, tier: str, synthetic: bool, source_url: str | None
-    ) -> int:
+    def _ingest_file(self, path: Path, doc_id: str, tier: str, synthetic: bool, source_url: str | None) -> int:
         raw = path.read_text(encoding="utf-8")
         body = _strip_frontmatter(raw) if path.suffix == ".md" else raw
         return self._add_chunks(body, doc_id, tier, synthetic, source_url)
 
-    def _add_chunks(
-        self, body: str, doc_id: str, tier: str, synthetic: bool, source_url: str | None
-    ) -> int:
+    def _add_chunks(self, body: str, doc_id: str, tier: str, synthetic: bool, source_url: str | None) -> int:
         chunks = _chunk_text(body, self._rag.chunk_size, self._rag.chunk_overlap)
         if not chunks:
             return 0

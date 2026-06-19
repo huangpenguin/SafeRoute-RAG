@@ -58,9 +58,7 @@ class LLMClient:
             )
         return self._clients[provider_name]
 
-    def audit(
-        self, provider_name: str, system_prompt: str, user_input: str, model: str | None = None
-    ) -> AuditVerdict:
+    def audit(self, provider_name: str, system_prompt: str, user_input: str, model: str | None = None) -> AuditVerdict:
         """Run the semantic-audit classifier with Structured Outputs (JSON verdict)."""
         provider = self._provider(provider_name)
         audit_model = model or provider.audit_model or provider.default_model
@@ -104,9 +102,7 @@ class LLMClient:
         )
         return resp.choices[0].message.content or ""
 
-    def _stream(
-        self, provider_name: str, model: str, messages: list[ChatCompletionMessageParam]
-    ) -> Iterator[str]:
+    def _stream(self, provider_name: str, model: str, messages: list[ChatCompletionMessageParam]) -> Iterator[str]:
         stream = self._client(provider_name).chat.completions.create(
             model=model,
             messages=messages,

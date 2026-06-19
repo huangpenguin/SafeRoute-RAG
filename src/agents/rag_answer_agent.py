@@ -33,9 +33,7 @@ class RagAnswerAgent:
         chunks: list[RetrievedChunk] = context.get("chunks", [])
         stream: bool = context.get("stream", False)
 
-        system_prompt = self._rag.generation_system_prompt.format(
-            retrieved_chunks=build_context_block(chunks)
-        )
+        system_prompt = self._rag.generation_system_prompt.format(retrieved_chunks=build_context_block(chunks))
         result = self._llm.generate(
             provider_name=route.target_provider,
             system_prompt=system_prompt,
@@ -46,6 +44,4 @@ class RagAnswerAgent:
         if stream:
             context["answer_stream"] = result
             return AgentResult(slot=self.slot, agent_name=self.name, route=route, chunks=chunks)
-        return AgentResult(
-            slot=self.slot, agent_name=self.name, route=route, chunks=chunks, answer=str(result)
-        )
+        return AgentResult(slot=self.slot, agent_name=self.name, route=route, chunks=chunks, answer=str(result))
