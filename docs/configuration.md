@@ -10,10 +10,22 @@ Secrets are **never** stored in YAML — only env var names.
 | --- | --- | --- |
 | `AIAND_API_KEY` | Yes (local + Space) | All ai& nodes in the demo |
 | `OPENAI_API_KEY` | No | Only if `public_node` points to real OpenAI |
+| `DEMO_MODE` | No | Space only: `1` enables session limits + hides ingest UI |
+| `DEMO_AIAND_API_KEY` | No | When `DEMO_MODE=1`, overrides `AIAND_API_KEY` if set |
+| `DEMO_MAX_QUERIES` | No | Max questions per browser session (default `10`) |
+| `DEMO_MAX_QUERY_CHARS` | No | Max input length (default `500`) |
+| `DEMO_MAX_GENERATION_TOKENS` | No | Cap RAG answer tokens when demo mode (default `512`) |
 
-**Local:** copy `.env.example` → `.env`.
+**Local:** copy `.env.example` → `.env`. Leave `DEMO_MODE` unset for unlimited dev.
 
-**Hugging Face Space:** Settings → Repository secrets → `AIAND_API_KEY`.
+**Hugging Face Space:** Settings → Repository secrets:
+
+| Secret | Value |
+| --- | --- |
+| `AIAND_API_KEY` | Demo-only ai& key (recommended) |
+| `DEMO_MODE` | `1` |
+
+Optional: use `DEMO_AIAND_API_KEY` instead of putting the display key in `AIAND_API_KEY`.
 
 Missing keys raise an explicit error (no silent fallback).
 

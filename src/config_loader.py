@@ -8,6 +8,7 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 
+from src.demo_limits import resolve_demo_api_key
 from src.models import AppConfig, ProviderConfig
 
 load_dotenv()
@@ -40,6 +41,9 @@ class ConfigLoader:
 
 def resolve_api_key(provider: ProviderConfig) -> str:
     """Resolve a provider's API key from its env var; raise if missing (no silent fallback)."""
+    demo_key = resolve_demo_api_key()
+    if demo_key is not None:
+        return demo_key
     key = os.environ.get(provider.api_key_env)
     if not key:
         raise RuntimeError(

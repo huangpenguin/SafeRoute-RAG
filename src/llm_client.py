@@ -10,6 +10,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from openai.types.shared_params import ResponseFormatJSONSchema
 
 from src.config_loader import resolve_api_key
+from src.demo_limits import max_generation_tokens
 from src.models import AppConfig, AuditVerdict, ProviderConfig
 
 _AUDIT_JSON_SCHEMA = {
@@ -93,21 +94,30 @@ class LLMClient:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_input},
         ]
+        gen_kwargs: dict[str, object] = {"temperature": 0.2}
+        if (cap := max_generation_tokens()) is not None:
+            gen_kwargs["max_tokens"] = cap
         if stream:
-            return self._stream(provider_name, gen_model, messages)
+            return self._stream(provider_name, gen_model, messages, gen_kwargs)
         resp = self._client(provider_name).chat.completions.create(
             model=gen_model,
             messages=messages,
-            temperature=0.2,
+            **gen_kwargs,
         )
         return resp.choices[0].message.content or ""
 
-    def _stream(self, provider_name: str, model: str, messages: list[ChatCompletionMessageParam]) -> Iterator[str]:
+    def _stream(
+        self,
+        provider_name: str,
+        model: str,
+        messages: list[ChatCompletionMessageParam],
+        gen_kwargs: dict[str, object],
+    ) -> Iterator[str]:
         stream = self._client(provider_name).chat.completions.create(
             model=model,
             messages=messages,
-            temperature=0.2,
             stream=True,
+            **gen_kwargs,
         )
         for chunk in stream:
             if not chunk.choices:

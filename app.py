@@ -5,6 +5,7 @@ from __future__ import annotations
 import streamlit as st
 
 from src.database import LocalKnowledgeBase
+from src.demo_limits import demo_mode_enabled, max_queries_per_session, max_query_chars
 from src.orchestrator import Orchestrator
 
 st.set_page_config(page_title="SafeRoute-RAG", page_icon="🛡️", layout="wide")
@@ -23,6 +24,27 @@ def _mask_url(url: str) -> str:
     return url.replace("https://", "").split("/")[0]
 
 
+def _check_demo_query_limit() -> bool:
+    """Return True if the query is allowed; show UI error otherwise."""
+    if not demo_mode_enabled():
+        return True
+    limit = max_queries_per_session()
+    used = st.session_state.setdefault("demo_query_count", 0)
+    if used >= limit:
+        st.error(f"デモの質問上限（{limit} 回/セッション）に達しました。ページを再読み込みしてください。")
+        return False
+    return True
+
+
+def _validate_query(query: str) -> str | None:
+    """Return an error message if the query is invalid."""
+    if not query.strip():
+        return "質問を入力してください。"
+    if demo_mode_enabled() and len(query) > max_query_chars():
+        return f"質問は {max_query_chars()} 文字以内にしてください。"
+    return None
+
+
 def main() -> None:
     orch = get_orchestrator()
     kb: LocalKnowledgeBase = orch.kb
@@ -33,18 +55,23 @@ def main() -> None:
     with st.sidebar:
         st.header("📚 ナレッジベース")
         st.metric("登録チャンク数", kb.count())
-        if st.button("manifest を一括取り込み", use_container_width=True):
-            with st.spinner("ingest 中..."):
-                n = kb.ingest_manifest(reset=True)
-            st.success(f"{n} チャンクを取り込みました")
-            st.rerun()
+        if demo_mode_enabled():
+            limit = max_queries_per_session()
+            used = st.session_state.get("demo_query_count", 0)
+            st.caption(f"デモモード: 残り {max(limit - used, 0)}/{limit} 回")
+        else:
+            if st.button("manifest を一括取り込み", use_container_width=True):
+                with st.spinner("ingest 中..."):
+                    n = kb.ingest_manifest(reset=True)
+                st.success(f"{n} チャンクを取り込みました")
+                st.rerun()
 
-        uploaded = st.file_uploader("文書をアップロード (.md / .txt)", type=["md", "txt"])
-        if uploaded is not None and st.button("アップロードを取り込み", use_container_width=True):
-            text = uploaded.read().decode("utf-8", errors="ignore")
-            n = kb.ingest_text(text, doc_id=uploaded.name, tier="uploaded")
-            st.success(f"{uploaded.name}: {n} チャンク取り込み")
-            st.rerun()
+            uploaded = st.file_uploader("文書をアップロード (.md / .txt)", type=["md", "txt"])
+            if uploaded is not None and st.button("アップロードを取り込み", use_container_width=True):
+                text = uploaded.read().decode("utf-8", errors="ignore")
+                n = kb.ingest_text(text, doc_id=uploaded.name, tier="uploaded")
+                st.success(f"{uploaded.name}: {n} チャンク取り込み")
+                st.rerun()
 
         st.divider()
         st.subheader("⚙️ アクティブ Pipeline")
@@ -56,15 +83,21 @@ def main() -> None:
         st.subheader("💬 チャット")
         query = st.chat_input("質問を入力してください")
         if query:
-            st.chat_message("user").write(query)
-            with st.spinner("ルーティング + 検索..."):
-                result = orch.run(query, stream=True)
-            with st.chat_message("assistant"):
-                if result.answer_stream is not None:
-                    st.write_stream(result.answer_stream)
-                else:
-                    st.write(result.answer or "（回答なし）")
-            st.session_state["last_result"] = result
+            err = _validate_query(query)
+            if err:
+                st.warning(err)
+            elif _check_demo_query_limit():
+                st.chat_message("user").write(query)
+                with st.spinner("ルーティング + 検索..."):
+                    result = orch.run(query, stream=True)
+                with st.chat_message("assistant"):
+                    if result.answer_stream is not None:
+                        st.write_stream(result.answer_stream)
+                    else:
+                        st.write(result.answer or "（回答なし）")
+                st.session_state["last_result"] = result
+                if demo_mode_enabled():
+                    st.session_state["demo_query_count"] = st.session_state.get("demo_query_count", 0) + 1
 
     with col_dash:
         st.subheader("📊 ルーティング監視ダッシュボード")
